@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+    <title>Image Gallery 3D</title>
+    <link href="site.css" rel="stylesheet" type="text/css" />
+</head>
+
+<body>
+    <script src="scripts/three.min.js"></script>
+    <script src="scripts/utils.js"></script>
+
+    <canvas id="c"></canvas>
+    <div id="label">1 / 12</div>
+
+    <script>
+        window.onclick = click;
+        window.onwheel = zoom;
+
+        const canvas = document.querySelector("#c");
+        var renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+        renderer.setClearColor(0xffffff, 1);
+
+        var scene = new THREE.Scene();
+
+        var camera = new THREE.PerspectiveCamera(45, canvas.clientWidth / canvas.clientHeight);
+        //camera.position.z = 20;
+        scene.add(camera);
+
+        var floor = new THREE.GridHelper(1000, 50, 0xe0e0e0, 0xe0e0e0);
+        floor.position.set(0, -35, -350);
+        scene.add(floor);
+
+        const slides = [
+            makeSlide(1), makeSlide(2), makeSlide(3),
+            makeSlide(4), makeSlide(5), makeSlide(6),
+            makeSlide(7), makeSlide(8), makeSlide(9),
+            makeSlide(10), makeSlide(11), makeSlide(12),
+        ];
+
+        slides.forEach(function (slide) { scene.add(slide); });
+
+        const distance = 150.0;
+        const base = -250;
+        var slideIndex = 0;
+        var angle = 0.0;
+        var targetAngle = 0.0;
+        var delta = 0.0;
+
+        const arrow = 1;
+        const cross = 2;
+        const R = 2;
+
+        var prevSlide = makeButton(R, arrow);
+        prevSlide.position.set(-10, -25, -70);
+        prevSlide.rotation.set(0, 0, Math.PI);
+        scene.add(prevSlide);
+
+        var nextSlide = makeButton(R, arrow);
+        nextSlide.position.set(10, -25, -70);
+        scene.add(nextSlide);
+
+        var deleteSlide = makeButton(R * 2 / 3, cross);
+        deleteSlide.position.set(-5, -25, -70);
+        deleteSlide.rotation.set(0, 0, Math.PI / 4);
+        scene.add(deleteSlide);
+
+        var addSlide = makeButton(R * 2 / 3, cross);
+        addSlide.position.set(5, -25, -70);
+        scene.add(addSlide);
+
+        const buttons = [prevSlide, nextSlide, deleteSlide, addSlide];
+
+        var light = new THREE.PointLight(0xFFFFFF);
+        light.position.set(-10, 15, 50);
+        scene.add(light);
+
+        function setupSlides() {
+            for (var i = 0; i < slides.length; ++i) {
+                var slide = slides[i];
+                var a = angle + i * Math.PI / 6.0;
+                slide.rotation.set(0, a, 0);
+                slide.position.set(distance * Math.sin(a), 3, base + distance * Math.cos(a));
+            }
+        }
+
+        function changeSlide(n) {
+            slideIndex += n;
+            if (slideIndex < 0) { slideIndex = 11 };
+            if (slideIndex > 11) { slideIndex = 0 };
+            targetAngle = slideIndex * Math.PI / 6.0;
+            if (n < 0 && angle < targetAngle) { angle += Math.PI * 2 }
+            if (n > 0 && angle > targetAngle) { angle -= Math.PI * 2 }
+            delta = 0.05 * n;
+            setupSlides();
+            document.querySelector("#label").innerHTML = `${slideIndex == 0 ? 1 : 13 - slideIndex} / 12`;
+        }
+
+        setupSlides();
+
+        function click(event) {
+            event.preventDefault();
+            const rect = canvas.getBoundingClientRect();
+            var position = {
+                x: ((event.clientX - rect.left) / canvas.clientWidth) * 2 - 1,
+                y: ((event.clientY - rect.top) / canvas.clientHeight) * -2 + 1
+            }
+            var raycaster = new THREE.Raycaster();
+            raycaster.setFromCamera(position, camera);
+            if (raycaster.intersectObjects(prevSlide.children).length) { changeSlide(1); }
+            if (raycaster.intersectObjects(nextSlide.children).length) { changeSlide(-1); }
+        }
+
+        function zoom(event) {
+            event.preventDefault();
+            var pos = camera.position.z;
+            pos += event.deltaY * 0.1;
+            pos = Math.min(Math.max(-35, pos), 145);
+            camera.position.z = pos;
+            buttons.forEach(function (button) { button.position.z = pos - 70; });
+        }
+
+        function setupLabel() {
+            const v = new THREE.Vector3(0, -25, camera.position.z - 70);
+            v.project(camera);
+            const x = (v.x * .5 + .5) * canvas.clientWidth;
+            const y = (v.y * -.5 + .5) * canvas.clientHeight;
+            document.querySelector("#label").style.transform = `translate(-50%, -50%) translate(${x}px,${y}px)`;
+        }
+
+        function render() {
+            if (resizeRendererToDisplaySize(renderer)) {
+                const canvas = renderer.domElement;
+                camera.aspect = canvas.clientWidth / canvas.clientHeight;
+                camera.updateProjectionMatrix();
+            }
+            requestAnimationFrame(render);
+            if (delta != 0.0) {
+                angle += delta;
+                if ((delta > 0.0 && angle >= targetAngle) || (delta < 0.0 && angle <= targetAngle)) {
+                    delta = 0.0;
+                    angle = targetAngle;
+                }
+                setupSlides();
+            }
+            renderer.render(scene, camera);
+            setupLabel();
+        }
+
+        render();
+
+    </script>
+</body>
+
+</html>
